@@ -2,10 +2,16 @@
 #include <iostream>
 #include <string>
 #include <functional>
+#include <typeinfo>
+
+template<typename T>
+struct TraceConstr
+{
+    TraceConstr() { std::cout << ">>> " << typeid(T).name() << "\n"; }
+    ~TraceConstr() { std::cout << "<<< " << typeid(T).name() << "\n"; }
+};
 
 // Framework
-
-class Backend;
 
 template<typename TResult, typename TInput, typename TMeta>
 std::function<TResult(TInput)> getFinalizer(TMeta) {
@@ -13,13 +19,17 @@ std::function<TResult(TInput)> getFinalizer(TMeta) {
 }
 
 template<typename TMeta, typename TContent>
-struct MetaBase {
+class MetaData
+{
     TMeta meta;
+public:
     TContent content;
 
+    MetaData(TMeta meta, TContent content) : meta(meta), content(content) {}
+
     template<typename TResult>
-    MetaBase<TMeta, TResult> transform(std::function<TResult(TContent)> fx) {
-        return MetaBase<TMeta, TResult>{meta, fx(content)};
+    MetaData<TMeta, TResult> transform(std::function<TResult(TContent)> fx) {
+        return MetaData<TMeta, TResult>{meta, fx(content)};
     }
 
     template<typename TResult>
@@ -32,16 +42,24 @@ struct MetaBase {
 
 // Specific application
 
+class Backend;
+
 using MetaInfo = struct {
     std::string data;
     Backend *backend;
 };
 
 template<typename TContent>
-using Meta = MetaBase<MetaInfo, TContent>;
+using Meta = MetaData<MetaInfo, TContent>;
 
-struct InputData { int value; };
-struct TransformedData { double value; };
+struct InputData : public TraceConstr<InputData> {
+    explicit InputData(int v) : value(v) {}
+    int value;
+};
+struct TransformedData : public TraceConstr<TransformedData> {
+    explicit TransformedData(int v) : value(v) {}
+    double value;
+};
 
 class Backend {
 public:
@@ -69,15 +87,19 @@ getFinalizer<std::string, TransformedData, MetaInfo>(MetaInfo meta) {
 
 // Usage example
 
+TransformedData transformFxC(const InputData &input) {
+    return TransformedData{(double)input.value};
+}
+
 int main(int argc, char **argv)
 {
     const auto transformFx = [](InputData input) {
         return TransformedData{(double)input.value};
-    }
+    };
 
     Backend backend("id");
     Meta<InputData> input = backend.addMeta("meta", [](){return InputData{42};});
-    Meta<TransformedData> transformed = input.transform<TransformedData>(transformFx);
+    Meta<TransformedData> transformed = input.transform<TransformedData>(transformFxC);
     std::string output = transformed.finalize<std::string>();
     std::cout << "Output: " << output << "\n";
     return 0;
