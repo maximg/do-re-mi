@@ -1,6 +1,7 @@
 // Copyright (C) M.Golov 2016
 #include <iostream>
 #include <string>
+#include <functional>
  
 struct InputData { int value; };
 struct TransformedData { double value; };
@@ -13,14 +14,15 @@ template<typename TContent>
 struct Meta {
     std::string meta;
     TContent content;
+
+    template<typename TResult>
+    Meta<TResult> transform(std::function<TResult(TContent)> fx) {
+        return Meta<TResult>{meta, fx(content)};
+    }
 };
 
 Meta<InputData> producer() {
     return Meta<InputData>{"meta", produceFx()};
-}
-
-Meta<TransformedData> transformer(Meta<InputData> input) {
-    return Meta<TransformedData>{input.meta, transformFx(input.content)};
 }
 
 std::string finalizer(Meta<TransformedData> input) {
@@ -30,7 +32,7 @@ std::string finalizer(Meta<TransformedData> input) {
 int main(int argc, char **argv)
 {
     Meta<InputData> input = producer();
-    Meta<TransformedData> transformed = transformer(input);
+    Meta<TransformedData> transformed = input.transform<TransformedData>(transformFx);
     std::string output = finalizer(transformed);
     std::cout << "Output: " << output << "\n";
     return 0;
