@@ -15,9 +15,11 @@ std::function<TResult(TInput)> getFinalizer(TMeta) {
     throw std::runtime_error("getFinalizer must be specialized");
 }
 
+using MetaInfo = std::string;
+
 template<typename TContent>
 struct Meta {
-    using TMeta = std::string;
+    using TMeta = MetaInfo;
     TMeta meta;
     TContent content;
 
@@ -37,11 +39,17 @@ Meta<InputData> producer() {
     return Meta<InputData>{"meta", produceFx()};
 }
 
+struct Backend {
+    std::string finalize(MetaInfo info, TransformedData input) {
+        return std::string("[") + info + "]: " + std::to_string(input.value);
+    }
+};
+
 template<>
 std::function<std::string(TransformedData)>
 getFinalizer<std::string, TransformedData, Meta<TransformedData>::TMeta>(Meta<TransformedData>::TMeta meta) {
     return [meta](TransformedData content){
-        return std::string("[") + meta + "]: " + std::to_string(content.value);
+        return Backend().finalize(meta, content);
     };
 }
 
