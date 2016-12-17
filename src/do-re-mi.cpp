@@ -2,13 +2,8 @@
 #include <iostream>
 #include <string>
 #include <functional>
- 
-struct InputData { int value; };
-struct TransformedData { double value; };
- 
-InputData produceFx() { return InputData{42}; }
-TransformedData transformFx(InputData input) { return TransformedData{(double)input.value}; }
 
+// Definition
 
 template<typename TResult, typename TInput, typename TMeta>
 std::function<TResult(TInput)> getFinalizer(TMeta) {
@@ -35,27 +30,43 @@ struct Meta {
     }
 };
 
-Meta<InputData> producer() {
-    return Meta<InputData>{"meta", produceFx()};
-}
 
-struct Backend {
-    std::string finalize(MetaInfo info, TransformedData input) {
-        return std::string("[") + info + "]: " + std::to_string(input.value);
+// Usage example
+
+struct InputData { int value; };
+struct TransformedData { double value; };
+
+class Backend {
+public:
+    explicit Backend(const std::string &id) : id(id) {}
+
+    Meta<InputData> addMeta(std::function<InputData()> fx) {
+        return Meta<InputData>{"meta", fx()};
     }
+
+    std::string finalize(MetaInfo info, TransformedData input) {
+        return std::string("[") + id + ":" + info + "]: " + std::to_string(input.value);
+    }
+
+private:
+    const std::string id;
 };
 
 template<>
 std::function<std::string(TransformedData)>
 getFinalizer<std::string, TransformedData, Meta<TransformedData>::TMeta>(Meta<TransformedData>::TMeta meta) {
     return [meta](TransformedData content){
-        return Backend().finalize(meta, content);
+        return Backend("xxx").finalize(meta, content);
     };
 }
 
+ 
+TransformedData transformFx(InputData input) { return TransformedData{(double)input.value}; }
+
 int main(int argc, char **argv)
 {
-    Meta<InputData> input = producer();
+    Backend backend("id");
+    Meta<InputData> input = backend.addMeta([](){return InputData{42};});
     Meta<TransformedData> transformed = input.transform<TransformedData>(transformFx);
     std::string output = transformed.finalize<std::string>();
     std::cout << "Output: " << output << "\n";
